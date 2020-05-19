@@ -1,0 +1,503 @@
+#===============================================================================
+#                   ParseFromServer.pl - MAY09 - by. Caldaga
+#
+#  Licensed under the Creative Commons Attribution-Share-Alike 3.0 US License 
+#            http://creativecommons.org/licenses/by-sa/3.0/us/
+#
+# This library holds the subroutine involved in parsing information from
+# the server. The sub routine "chan_window" controls everything going to
+# the main chat window.
+#
+# Sub routines in this library:
+#
+# parse_from_server
+#
+#===============================================================================
+
+#============================================
+# This sub routine parses all the information
+# sent from the server that the bot brings
+# in.  More notes for each section.  Also
+# calls the timestamp sub routine so we see
+# a time stamp for each line from the server.
+#============================================
+sub parse_from_server {
+
+	my $line = $_[0];
+	
+	&timestamp;
+
+#============================================
+# This line says if the line from the server
+# is a CHANNEL message (1007), it fills out
+# the top of the channel list with the new
+# channel name and channel count.
+#============================================
+
+	if ($line =~ m/^1007/) {
+		
+		$line =~ m/^1007\sCHANNEL\s\"(\S+)\"/;
+		$currentchan = $1;
+		&channel_count ($line);
+		
+	}
+
+#============================================
+# This next chunk does quite a bit.  First
+# if someone joins the channel with the
+# flags 0001 or 0011 (ADMIN FLAGS), then it
+# will put them at the top of the channel
+# and give them the admin icon, as well as
+# adjusting the channel count.  Next it
+# parses every one besides admins and
+# sends them to the bottom of the list with
+# the appropriate icon. Also allows us to
+# see the join messages if we choose to.
+#============================================
+
+	if ($line =~ m/^1002/) {
+		if ($line =~ m/0001|0011/) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+)\s(\d{4}).*/;
+			&canvasListAddTop( $chan_list, $2, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\QX~[\E|\bCaldaga\b|\bZednor\b|\bWarfoxx\b|\bKrazy\b|\b.oulfromhell\b/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, XiP, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q~CoT\E|\Q`c0t\E|\bnoki\b|\bAngel\b|\Q(CoT)\E|\Q]c0t[\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, CoT, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q{][)K}\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, DK, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q{EwR}\E|\QEw|2\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, EwR, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q]{LiK\E|\Q]{4\E|\b\QEv][L\E\b/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, KLiK, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q]oL[\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, oL, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q]sV[\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, sV, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q+|{W+\E|\Q{kW}\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, KW, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q~TG|{~\E|\bdeath\b/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, TGK, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q][)-\E|\Q-][)\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, D, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q-=^\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, un4, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\QWa|2\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, WaR, $1, 28, 27);
+			&channel_count ($line);
+		}
+		else {	
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			&canvasListAdd( $chan_list, $2, $1, 28, 27);
+			&channel_count ($line);
+		}
+
+		if ($join_leave_notifications) {
+			chomp($line);
+			&count;
+			$line =~ s/\d{4}\s\w+\s(\S+).*/$1/;
+			$chat_window->insert('end', "[$timestamp] - ");
+			$chat_window->insert('end', "$line has joined the channel.\n", 'orange');
+			$chat_window->yview('end');
+		}
+	}
+	
+#===================================
+# This next bit handles emotes
+#===================================
+
+	if ($line =~ m/^1023/) {
+	
+		$filtercount = 0;
+	
+		foreach (@filter) {
+			chomp;
+			if ($line =~ m/\Q$_\E/i) {
+				$filtercount = 1;
+				last;
+			}
+		}
+
+		if (! $filtercount == 1) {
+			
+			&count;
+			$line =~ m/\d+\s\w+\s(\S+)\s(\d+)\s(.*)/;
+			$name = $1;
+			$clientflag = $2;
+			$line = $3;
+			$line =~ s/\"(.*)\"/$1/;
+			
+			if ($capsfilter == 1) {
+				$line =~ s/(.*)/\L$1/;
+			}
+		
+		$chat_window->insert('end', "[$timestamp] ");
+		$chat_window->insert('end', "< $name > ", 'yellow');
+		$chat_window->insert('end', "$line\n", 'yellow');
+		$chat_window->yview('end');
+		
+		}
+	}
+	
+#=========================================
+# This next chunk removes people from the
+# channel when they leave.  It also allows
+# us to see leave messages if we choose.
+#=========================================
+
+	if ($line =~ m/^1003/) {
+		$line =~ m/\d{4}\s\w+\s(\S+)\s(\d{4}).*/;
+		&canvasListDelete( $chan_list, $1, 27);
+		&channel_count ($line);
+		
+		if ($join_leave_notifications) {
+			chomp($line);
+			&count;
+			$line =~ s/\d{4}\s\w+\s(\S+).*/$1/;
+			$chat_window->insert('end', "[$timestamp] - ");
+			$chat_window->insert('end', "$line has left the channel.\n", 'orange');
+			$chat_window->yview('end');
+		}
+	}
+
+#========================================
+# This adds people to the channel list,
+# sets the channel name and channel count
+# when you join a new channel.
+#========================================
+
+	if ($line =~ m/^1001/) {
+		if ($line =~ m/0012|0002/) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+)\s(\d{4}).*/;
+			&canvasListAddTop( $chan_list, $2, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/0001|0011/) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+)\s(\d{4}).*/;
+			&canvasListAddTop( $chan_list, $2, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\QX~[\E|\b\QCaldaga\E\b|\b\QZednor\E\b|\b\QWarfoxx\E\b|\b\QKrazy\E\b|\b.oulfromhell\b/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, XiP, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q~CoT\E|\Q`c0t\E|\b\Qnoki\E\b|\b\QAngel\E\b|\Q(CoT)\E|\Q]c0t[\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, CoT, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q{][)K}\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, DK, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q+|{W+\E|\Q{kW}\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, KW, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q][)-\E|\Q-][)\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, D, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q{EwR}\E|\QEw|2\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, EwR, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q]{LiK\E|\Q]{4\E|\b\QEv][L\E\b/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, KLiK, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q]oL[\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, oL, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q]sV[\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, sV, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q~TG|{~\E|\bdeath\b/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, TGK, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\Q-=^\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, un4, $1, 28, 27);
+			&channel_count ($line);
+		}
+		elsif ($line =~ m/\QWa|2\E/i) {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, WaR, $1, 28, 27);
+			&channel_count ($line);
+		}
+		else {
+			$line =~ m/\d{4}\s\w{4}\s(\S+).*\[(.*)\]/;
+			canvasListAdd( $chan_list, $2, $1, 28, 27);
+			&channel_count ($line);
+		}
+	}
+	
+	if ($line =~ m/^1009/) {
+		$line =~ m/\d{4}\s\w+\s(\S+)\s(\d{4}).*/;
+		if ($2 =~ m/0012|0002/) {
+			$line =~ m/\d{4}\s\w+\s(\S+)\s(\d{4}).*/;
+			&canvasListDelete( $chan_list, $1, 27);
+			&canvasListAddTop( $chan_list, $2, $1, 28, 27);
+			&channel_count ($line);
+		}
+		else {
+			return;
+		}		
+	}
+#========================================
+# This prints error messages from the
+# server in red.
+#========================================
+
+	if ($line =~ m/^1019/) {
+		$line =~ s/\d{4}\s\w+//;
+		$line =~ m/\"(.*)\"/;
+		&count;
+		if ($line =~ m/You\scan't\s(\S+)\sa\schannel\soperator/) { return; }
+		$chat_window->insert('end', "[$timestamp] -");
+		$chat_window->insert('end', " $1\n", 'red');
+		$chat_window->yview('end');
+ 		$chat_window->update;
+	}
+
+#========================================
+# This displays all the information
+# messages from the server in a nice grey
+# color.
+#========================================
+
+	if ($line =~ m/^1018/) {
+		$line =~ s/\d{4}\s\w+//;
+		$line =~ s/\"(.*)\"/$1/;
+		
+		if ($line =~ m/There\sare\scurrently\s(\d+)\s/) { $place = $1; }
+		if ($line =~ m/$user\swas\skicked\s.*/) { print $sock "\/join $currentchan\n"; }
+		if ($line =~ m/$user\swas\sbanned\sby\s.*/) { print $sock "\/join $backupchannel\n"; }
+		if ($line =~ m/is\saway/) { return; }
+		
+		&count;
+		chomp($line);
+		$chat_window->insert('end', "[$timestamp] -");
+		$chat_window->insert('end', " $line\n", 'grey');
+		$chat_window->yview('end');
+		$chat_window->update;
+
+	}
+
+#======================================
+# This piece parses everything another
+# user sends to the server that gets
+# sent to you as TALK messages.  It
+# also enables our Filter to filter
+# out the messages we do not want
+# to see.
+#======================================
+
+	if ($line =~ m/^1005/) {
+
+		$filtercount = 0;
+		
+		foreach (@filter) {
+			chomp;
+			if ($line =~ m/\Q$_\E/i) {
+				$filtercount = 1;
+				last;
+			}
+		}
+
+		if (! $filtercount == 1) {
+			
+			&count;
+			$line =~ m/\d+\s\w+\s(\S+)\s(\d+)\s(.*)/;
+			$name = $1;
+			$clientflag = $2;
+			$line = $3;
+			$line =~ s/\"(.*)\"/$1/;
+			
+			if ($capsfilter == 1) {
+				$line =~ s/(.*)/\L$1/;
+			}
+			
+			if ($clientflag =~ m/0012|0011|0001/) {
+				$chat_window->insert('end', "[$timestamp] -");
+				$chat_window->insert('end', " $name ", 'blue');
+				$chat_window->insert('end', "- $line\n");
+				$chat_window->yview('end');
+			} 
+			else {
+				$chat_window->insert('end', "[$timestamp] -");
+				$chat_window->insert('end', " $name ", 'yellow');
+				$chat_window->insert('end', "- $line\n");
+				$chat_window->yview('end');
+			} 
+			
+			if ($line =~ m/(^\Q$trigger\E)/) { 
+				&command ($line, $name, $user) }
+				
+			if ($line =~ m/(^\Q?trigger\E)/) { 
+				&command ($line, $name, $user) }
+
+
+		}
+	}
+	
+	if ($line =~ m/^1006/) {
+		
+		$line =~ s/\d{4}\s.{1}\s\"(.*)\"/$1/;
+		
+		$chat_window->insert('end', "[$timestamp] -");
+		$chat_window->insert('end', " $line", 'red');
+		$chat_window->yview('end');
+		
+	}
+
+#======================================
+# This code allows us to see whispers
+# from other users in a seperate window
+# and make that window appear the first
+# time we recieve a whisper.
+#======================================
+
+	if ($line =~ m/^1004/) {
+		$line =~ m/\d{4}\s\w{7}\s(\S+)\s\d{4}(.*)/;
+		$name = "$1";
+		$line = "$2";
+		$line =~ s/\"(.*)\"/$1/;
+		
+		foreach (@botnet) {
+			if ($name eq $_) {
+				if ($line =~ m/Server\:.*|Delay\:.*|Place\:.*|Ping\:.*|Channel\:.*|Home\:.*|\[.*\]\:\s.*/i) {
+					&build_botnet ($name, $line);
+					return;
+				}
+			}
+		}
+		
+		if ($friend_event == 1) {
+			if ($line =~ m/Your\sfriend\s\S+\shas\s(exited|entered)\sthe\sserver\./) 
+				{ return; }
+		}
+		
+		@Test_TextBox3 = $mw->gridSlaves(-row=>"1",
+								   		 -column=>"0");
+		if (! @Test_TextBox3) {
+			$whisp_window->grid(-column=>"0",
+				 	 			-row=>"1",
+					 			-sticky=>"sew",
+					 			-pady=>"5",
+					 			-padx=>"5",);
+		}
+		
+		$whisp_window->insert('end', "[$timestamp] -", 'white');
+		$whisp_window->insert('end', " From:", 'white');
+		$whisp_window->insert('end', " $name ", 'yellow');
+		$whisp_window->insert('end', "- $line\n", 'white');
+		$whisp_window->yview('end');
+		$reply = $name;
+
+	} 
+	
+#======================================
+# This piece allows us to see the
+# whispers we send to other people in
+# the whisper window. It also makes
+# the whisper window appear the first
+# time we send a whisper, if it is not
+# already present.
+#======================================
+
+	if ($line =~ m/^1010/) {
+		@Test_TextBox3 = $mw->gridSlaves(-row=>"1",
+								   		 -column=>"0");
+								   
+		foreach (@botnet) {
+			$line =~ m/^1010\sWHISPER\s(\S+)\s(.*)/i;
+			my $botname = $1;
+			my $line = $2;
+			if ($botname eq $_) {
+				if ($line =~ m/.{1}server|.{1}place|.{1}home|.{1}delay|.{1}channel|.{1}ping/i) {
+					return;
+				}
+			}
+		}
+								   
+		if (! @Test_TextBox3) {
+			$whisp_window->grid(-column=>"0",
+				 	 			-row=>"1",
+					 			-sticky=>"sew",
+					 			-pady=>"5",
+					 			-padx=>"5",);
+		}
+		
+		if ($line =~ m/\d{4}\s\w{7}\s(your\sfriends)\s\d{4}\s(.*)/) {
+			my $line = "$2";
+			$line =~ s/\"(.*)\"/$1/;
+			$whisp_window->insert('end', "[$timestamp] -", 'white');
+			$whisp_window->insert('end', " To:", 'white');
+			$whisp_window->insert('end', " Your Friends ", 'yellow');
+			$whisp_window->insert('end', "- $line\n", 'white');
+			$whisp_window->yview('end');
+		}
+		else {
+			$line =~ m/\d{4}\s\w{7}\s(\S+)\s\d{4}(.*)/;
+			my $name = "$1";
+			my $line = "$2";
+			$line =~ s/\"(.*)\"/$1/;
+			$whisp_window->insert('end', "[$timestamp] -", 'white');
+			$whisp_window->insert('end', " To:", 'white');
+			$whisp_window->insert('end', " $name ", 'yellow');
+			$whisp_window->insert('end', "- $line\n", 'white');
+			$whisp_window->yview('end');
+		}
+
+	}
+
+}
+1;

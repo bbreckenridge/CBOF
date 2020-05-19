@@ -1,0 +1,7 @@
+You're going to need to put ./.CBOF in your home directory and run the following:
+
+cpan Tk
+(10:07:39 PM) exileddemons: apt-get install libpng3
+apt-get install libtk-img
+apt-get install perl-tk
+apt-get install libhtml-tableextract-perl

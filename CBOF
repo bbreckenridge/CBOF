@@ -1,0 +1,338 @@
+#!/home/jmccain/bin/perl -w
+#===============================================================================
+#                   CBOF.pl - MAY09 - by. Caldaga
+#
+#  Licensed under the Creative Commons Attribution-Share-Alike 3.0 US License 
+#            http://creativecommons.org/licenses/by-sa/3.0/us/
+#
+# This is the main function of the bot.  It creates the majority of the GUI and
+# controls where it installs all its files and libaries
+#
+#===============================================================================
+
+use Tk;
+use Tk::ROText;
+use LWP::Simple;
+use HTML::TableExtract;
+use IO::Socket::INET;
+use Tie::File;
+use Tk::JPEG;
+use diagnostics;
+$dep_path = $0;
+$dep_path =~ s/^(.*)\/CBOF$/$1/;
+require "$dep_path/lib/Network.pl";
+require "$dep_path/lib/canvasList.pl";
+require "$dep_path/lib/ParseFromServer.pl";
+require "$dep_path/lib/Functions.pl";
+require "$dep_path/lib/ExtraGui.pl";
+require "$dep_path/lib/commands.pl";
+#require "$dep_path/lib/botnet.pl";
+
+#==========================
+# Variables that pertain to
+# the program, not to the
+# functionality.
+#==========================
+
+$program_name = "CBOF";
+$program_version = "2.1";
+
+#================================
+# This portion controls where and
+# how the bot is installed.
+#================================
+
+$config_path = "$ENV{HOME}/.CBOF";
+unless (-d $config_path) { mkdir $config_path; }
+unless (-e "$config_path/Config.pl") { 
+		open CONFIG, ">$config_path/Config.pl";
+		print CONFIG '$font = \'9\';'; close CONFIG; }
+
+do "$config_path/Config.pl";
+die $@ if $@;
+
+do "$config_path/server.pl";
+die $@ if $@;
+
+do "$config_path/BotnetSettings.pl";
+die $@ if $@;
+
+#================================
+# Create the "tie" between the
+# fitler.txt and the filter array
+# so they are linked when edited.
+#================================
+
+$filterfile = "$config_path/filter.txt";
+@filter = ();
+
+tie(@filter, 'Tie::File', $filterfile);
+
+#================================
+# Create the "tie" between the
+# database.txt and the database
+# array so they are linked when
+# edited.
+#================================
+
+$databasefile = "$config_path/database.txt";
+@database = ();
+
+tie(@database, 'Tie::File', $databasefile); 
+
+#=================
+# Set the font.
+#=================
+
+$ARGV[0] = "-font";
+$ARGV[1] = "arial $font";
+
+#=============================
+# Create the main GUI, this is
+# where the rest of the GUI
+# will be embedded. Also calls
+# the load pics sub routine
+# so the icons are ready for
+# the chan list.
+#=============================
+
+$mw = MainWindow->new(-title=>"$program_name $program_version",
+				 	  -background=>"black",
+				  	  -width=>"300",
+				  	  -height=>"200",);
+
+&load_pics;
+
+$mw->gridPropagate(0);
+$mw->gridColumnconfigure(0, -weight=>"1");
+$mw->gridRowconfigure(0, -weight=>"1");
+
+
+#===============================
+# Creates the Frame that the
+# channel name and channel list
+# are embedded in.
+#===============================
+
+$Frame1 = $mw->Frame(-background=>"black",);
+
+$Frame1->gridRowconfigure(1, -weight=>"1");
+
+#=================
+# Creates the menu
+#=================
+$menu = $mw->Menu(-background=>"DarkGrey",
+			      -borderwidth=>"0",);
+
+$mw->configure(-menu=>$menu);
+
+#=================
+# Server drop down
+#=================
+
+$server_menu = $menu->cascade(-label=>'~Server',
+				    	      -tearoff=>0);
+	    $server_menu->command(-label=>'Connect',
+			  				  -command=>\&con_socket);
+	    $server_menu->command(-label=>'Disconnect',
+			 				  -command=>\&dcon_socket);
+	    $server_menu->command(-label=>'Reconnect',
+							  -command=>\&rcon_button);
+
+#=================
+# File drop down
+#=================
+
+$file = $menu->cascade(-label=>'S~ettings',
+					   -tearoff=>0);
+	    $file->command(-label=>'Database',
+	    			   -command=>\&database_window);
+	    $file->command(-label=>'Filter', 
+	    			   -command=>\&filter_window);
+	    $file->command(-label=>'Preferences',
+	    			   -command=>\&config_window);
+	    $file->command(-label=>'Server Hotkeys',
+	    			   -command=>\&server_hotkeys);
+				   
+#==============
+# Botnet button
+#==============
+
+#$botnet_menu = $menu->cascade(-label=>'~Botnet',
+#							  -tearoff=>0);
+#		$botnet_menu->command(-label=>'Botnet',
+#							  -command=>\&botnet_window);
+#		$botnet_menu->command(-label=>'Botnet Settings',
+#							  -command=>\&botnet_settings_window);
+
+#=================
+# About button
+#=================
+
+$about_button = $menu->command(-label=>'~About',
+					  	 	   -command=>\&about_window);
+					  
+#=================
+# Help Button
+#=================
+
+$help_button = $menu->command(-label=>'~Help',
+							  -command=>\&help);
+
+#=============================
+# Create main chat window
+#=============================
+
+$chat_window = $mw->Scrolled('ROText',
+				  			 -scrollbars=>"oe",
+				  			 -wrap=>"word",
+				  			 -background=>"black",
+			      			 -borderwidth=>"0",
+			      			 -highlightthickness=>"0",
+				  			 -foreground=>"white");
+
+  $chat_window->grid(-column=>"0",
+				 	 -row=>"0",
+				 	 -sticky=>"nsew",
+				 	 -pady=>"5",
+				 	 -padx=>"5",);
+
+		$chat_window->tagConfigure('blue',
+								   -foreground=>'#0066CC');
+		$chat_window->tagConfigure('yellow',
+								   -foreground=>'#D9D80A');
+		$chat_window->tagConfigure('red', 
+								   -foreground=>'red');
+		$chat_window->tagConfigure('green',
+								   -foreground=>'#0ACC00');
+		$chat_window->tagConfigure('grey',
+								   -foreground=>'#A9A9A9');
+		$chat_window->tagConfigure('center',
+								   -justify=>'center');
+		$chat_window->tagConfigure('orange',
+								   -foreground=>'orange');
+		$chat_window->tagConfigure('centerblue',
+								   -justify=>'center',
+								   -foreground=>'#0E9AF1');
+  
+  $chat_window->Subwidget("yscrollbar")->configure(-activebackground=>"#A9A9A9",
+  										 		   -borderwidth=>"1",
+  										 		   -background=>"#A9A9A9",
+  										 		   -activerelief=>"flat",
+  										 		   -troughcolor=>"black",
+  										 		   -width=>"8");
+
+#==============================
+# Prints the "splash" screen
+# when you first open the bot.
+#==============================
+
+  $mw->Photo('icon',
+		     -file=>"$dep_path/CBOF.jpg",
+	 	     -format=>"jpeg");
+
+  $icon = $mw->Label(-image=>'icon',
+				 	 -borderwidth=>"0");
+					    
+  $icon->grid(-column=>"0",
+		      -row=>"0");
+
+  $chat_window->insert('end', "www.TheXiP.com", 'centerblue');
+
+#====================================
+# Creates the small window that shows
+# the channel name and channel count.
+#====================================
+
+$chan_name = $Frame1->Scrolled('ROText',
+				 			   -scrollbars=>"o",
+				 			   -width=>"20",
+				 			   -height=>"1",
+				 			   -background=>"black",
+				 			   -highlightcolor=>"white",
+				 			   -borderwidth=>"1",
+				 			   -foreground=>"white");
+				 
+		$chan_name->grid(-column=>"0",
+				 		 -row=>"0",
+				 		 -sticky=>"new",);
+
+		$chan_name->tagConfigure('center',
+								 -justify=>'center');
+
+#============================
+# Creates the channel list
+#============================
+
+$chan_list = $Frame1->Scrolled('Canvas',
+				 			   -scrollbars=>"oe",
+				 			   -width=>"220",
+				 			   -background=>"black",
+				 			   -highlightcolor=>"white",
+			      			   -borderwidth=>"1",);
+	 	$chan_list->grid(-column=>"0",
+				 		 -row=>"1",
+				 		 -sticky=>"nsw",);
+				 
+  $chan_list->Subwidget("yscrollbar")->configure(-activebackground=>"#A9A9A9",
+  									    		 -borderwidth=>"1",
+  									    		 -background=>"#A9A9A9",
+  									    		 -activerelief=>"flat",
+  									    		 -troughcolor=>"black",
+  									    		 -width=>"8");
+
+#============================
+# Creates the whisper window
+#============================
+
+$whisp_window = $mw->Scrolled('ROText',
+				 			  -scrollbars=>"oe",
+				 			  -wrap=>"word",
+				 			  -height=>"7",
+				 			  -background=>"black",
+				 			  -borderwidth=>"1",
+				 			  -highlightcolor=>"white",);
+
+  $whisp_window->Subwidget("yscrollbar")->configure(-activebackground=>"#A9A9A9",
+  										  			-borderwidth=>"1",
+  										  			-background=>"#A9A9A9",
+  										  			-activerelief=>"flat",
+  										  			-troughcolor=>"black",
+  										  			-width=>"8");
+  
+  $whisp_window->tagConfigure('grey',
+  							  -foreground=>'#A9A9A9');
+  $whisp_window->tagConfigure('yellow',
+  							  -foreground=>'#D9D80A');
+  $whisp_window->tagConfigure('white',
+  							  -foreground=>'white');
+
+#============================
+# Creates the entry box
+#============================
+
+$main_entry = $mw->Entry(-textvariable=>\$text,
+			   			 -width=>"83",
+			   			 -borderwidth=>"1",
+			   			 -background=>"black",
+			   			 -foreground=>"white",
+			   			 -highlightcolor=>"white",
+			   			 -insertbackground=>"white",);
+
+	  $main_entry->bind('<KeyPress-Return>', \&write_socket);
+	  $main_entry->bind('<KeyPress-Tab>', [\&autocomplete, \$text]);
+	  
+	  $mw->bind('<Control Shift C>', \&con_socket);
+	  $mw->bind('<KeyPress-F1>', \&help);
+	  $mw->bind('<KeyPress-F2>', \&F2);
+	  $mw->bind('<KeyPress-F3>', \&F3);
+	  $mw->bind('<KeyPress-F4>', \&F4);
+	  $mw->bind('<KeyPress-F5>', \&F5);
+	  $mw->bind('<KeyPress-F6>', \&F6);
+	  $mw->bind('<KeyPress-F7>', \&F7);
+	  
+
+
+MainLoop;
+
+
